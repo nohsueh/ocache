@@ -21,85 +21,85 @@ func (f GetterFunc) Get(key string) ([]byte, error) {
 	return f(key)
 }
 
-// A Class is a Cache namespace and associated data loaded spread over.
-type Class struct {
+// A Relation is a Cache namespace and associated data loaded spread over.
+type Relation struct {
 	name      string
 	getter    Getter
 	mainCache Cache
 	peers     PeerPicker
-	// use singleflight.Class to make sure that
+	// use singleflight.Relation to make sure that
 	// each key is only fetched once
-	loader *singleflight.Class
+	loader *singleflight.Relation
 }
 
 var (
-	mu      sync.RWMutex
-	classes = make(map[string]*Class)
+	mu        sync.RWMutex
+	relations = make(map[string]*Relation)
 )
 
-// NewClass create a new instance of Class.
-func NewClass(name string, cacheBytes int64, getter Getter) *Class {
+// NewClass create a new instance of Relation.
+func NewClass(name string, cacheBytes int64, getter Getter) *Relation {
 	mu.Lock()
 	defer mu.Unlock()
 	if getter == nil {
 		panic("nil Getter")
 	}
-	c := &Class{
+	r := &Relation{
 		name:      name,
 		getter:    getter,
-		mainCache: Cache{bytes: cacheBytes},
-		loader:    &singleflight.Class{},
+		mainCache: Cache{cap: cacheBytes},
+		loader:    &singleflight.Relation{},
 	}
-	classes[name] = c
-	return c
+	relations[name] = r
+	return r
 }
 
 // GetClass returns the named class previously created with NewClass, or nil if
 // there's no such class.
-func GetClass(name string) *Class {
+func GetClass(name string) *Relation {
 	mu.RLock()
 	defer mu.RUnlock()
-	c := classes[name]
-	return c
+	r := relations[name]
+	return r
 }
 
-// Get b for a key from Cache.
-func (c *Class) Get(key string) (ByteView, error) {
+// Get bytes for a key from Cache.
+func (r *Relation) Get(key string) (ByteView, error) {
 	if key == "" {
 		return ByteView{}, fmt.Errorf("key is required")
 	}
 
-	if value, ok := c.mainCache.get(key); ok {
+	if view, ok := r.mainCache.get(key); ok {
 		log.Println("[Cache] hit")
-		return value, nil
+		return view, nil
 	}
 
-	return c.load(key)
+	return r.load(key)
 }
 
 // RegisterPeers registers a PeerPicker for choosing remote peer
-func (c *Class) RegisterPeers(peers PeerPicker) {
-	if c.peers != nil {
+func (r *Relation) RegisterPeers(peers PeerPicker) {
+	if r.peers != nil {
 		panic("RegisterPeerPicker called more than once")
 	}
-	c.peers = peers
+	r.peers = peers
 }
 
-func (c *Class) load(key string) (value ByteView, err error) {
+func (r *Relation) load(key string) (value ByteView, err error) {
 	// each key is only fetched once (either locally or remotely)
 	// regardless of the number of concurrent callers.
-	v, err := c.loader.Do(key,
+	v, err := r.loader.Do(key,
 		func() (interface{}, error) {
-			if c.peers != nil {
-				if peer, ok := c.peers.PickPeer(key); ok {
-					if value, err = c.getFromPeer(peer, key); err == nil {
+			if r.peers != nil {
+				if peer, ok := r.peers.PickPeer(key); ok {
+					if value, err = r.getFromPeer(peer, key); err == nil {
 						return value, nil
 					}
 					log.Println("[GeeCache] Failed to get from peer", err)
 				}
 			}
 
-			return c.getLocally(key)
+			return r.getLocally(key)
 		},
 	)
 
@@ -109,9 +109,9 @@ func (c *Class) load(key string) (value ByteView, err error) {
 	return
 }
 
-func (c *Class) getFromPeer(peer PeerGetter, key string) (ByteView, error) {
+func (r *Relation) getFromPeer(peer PeerGetter, key string) (ByteView, error) {
 	req := &pb.Request{
-		Class: c.name,
+		Class: r.name,
 		Key:   key,
 	}
 	res := &pb.Response{}
@@ -119,19 +119,19 @@ func (c *Class) getFromPeer(peer PeerGetter, key string) (ByteView, error) {
 	if err != nil {
 		return ByteView{}, err
 	}
-	return ByteView{b: res.Value}, nil
+	return ByteView{bytes: res.Value}, nil
 }
 
-func (c *Class) getLocally(key string) (ByteView, error) {
-	bytes, err := c.getter.Get(key)
+func (r *Relation) getLocally(key string) (ByteView, error) {
+	bytes, err := r.getter.Get(key)
 	if err != nil {
 		return ByteView{}, err
 	}
-	value := ByteView{b: cloneBytes(bytes)}
-	c.populateCache(key, value)
+	value := ByteView{bytes: cloneBytes(bytes)}
+	r.populateCache(key, value)
 	return value, nil
 }
 
-func (c *Class) populateCache(key string, value ByteView) {
-	c.mainCache.add(key, value)
+func (r *Relation) populateCache(key string, value ByteView) {
+	r.mainCache.add(key, value)
 }

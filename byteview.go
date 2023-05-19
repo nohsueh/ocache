@@ -1,23 +1,23 @@
 package ocache
 
-// A ByteView holds an immutable view of b.
+// A ByteView holds an immutable view of bytes.
 type ByteView struct {
-	b []byte
+	bytes []byte
 }
 
 // Len returns the view's length
-func (v ByteView) Len() int {
-	return len(v.b)
+func (view ByteView) Len() int {
+	return len(view.bytes)
 }
 
 // ByteSlice returns a copy of the data as a byte slice.
-func (v ByteView) ByteSlice() []byte {
-	return cloneBytes(v.b)
+func (view ByteView) ByteSlice() []byte {
+	return cloneBytes(view.bytes)
 }
 
 // String returns the data as a string, making a copy if necessary.
-func (v ByteView) String() string {
-	return string(v.b)
+func (view ByteView) String() string {
+	return string(view.bytes)
 }
 
 func cloneBytes(bytes []byte) []byte {

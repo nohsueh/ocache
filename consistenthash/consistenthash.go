@@ -14,7 +14,7 @@ type Map struct {
 	hash     Hash
 	replicas int
 	keys     []int // Sorted
-	hashMap  map[int]string
+	hashes   map[int]string
 }
 
 // New creates a Map instance
@@ -26,7 +26,7 @@ func New(replicas int, fn Hash) *Map {
 	m := &Map{
 		replicas: replicas,
 		hash:     fn,
-		hashMap:  make(map[int]string),
+		hashes:   make(map[int]string),
 	}
 
 	return m
@@ -34,11 +34,11 @@ func New(replicas int, fn Hash) *Map {
 
 // Add adds some keys to the hash.
 func (m *Map) Add(keys ...string) {
-	for _, key := range keys {
+	for _, k := range keys {
 		for i := 0; i < m.replicas; i++ {
-			hash := int(m.hash([]byte(key + strconv.Itoa(i))))
+			hash := int(m.hash([]byte(k + strconv.Itoa(i))))
 			m.keys = append(m.keys, hash)
-			m.hashMap[hash] = key
+			m.hashes[hash] = k
 		}
 	}
 
@@ -51,14 +51,14 @@ func (m *Map) Get(key string) string {
 		return ""
 	}
 
-	hash := int(m.hash([]byte(key)))
+	h := int(m.hash([]byte(key)))
 
 	// Binary search for appropriate replica.
 	i := sort.Search(len(m.keys),
 		func(i int) bool {
-			return m.keys[i] >= hash
+			return m.keys[i] >= h
 		},
 	)
 
-	return m.hashMap[m.keys[i%len(m.keys)]]
+	return m.hashes[m.keys[i%len(m.keys)]]
 }

@@ -4,17 +4,17 @@ import "container/list"
 
 // Cache is an LRU cache. It is not safe for concurrent access.
 type Cache struct {
-	cap      int64
-	size     int64
-	list     *list.List
-	cacheMap map[string]*list.Element
+	cap  int64
+	size int64
+	ll   *list.List
+	eles map[string]*list.Element
 	// optional and executed when an entry is purged.
 	OnEvicted func(key string, value Value)
 }
 
 type entry struct {
-	key   string
-	value Value
+	key string
+	val Value
 }
 
 // Value use Len to count how many size it takes.
@@ -23,57 +23,57 @@ type Value interface {
 }
 
 // New is the Constructor of Cache. cap = 0 means no limit.
-func New(maxBytes int64, onEvicted func(string, Value)) *Cache {
+func New(cap int64, onEvicted func(string, Value)) *Cache {
 	return &Cache{
-		cap:       maxBytes,
-		list:      list.New(),
-		cacheMap:  make(map[string]*list.Element),
+		cap:       cap,
+		ll:        list.New(),
+		eles:      make(map[string]*list.Element),
 		OnEvicted: onEvicted,
 	}
 }
 
-// Get look ups a key's value.
-func (c *Cache) Get(key string) (value Value, ok bool) {
-	if element, ok := c.cacheMap[key]; ok {
-		c.list.MoveToBack(element)
-		kv := element.Value.(*entry)
-		return kv.value, true
+// Get look ups a key's val.
+func (c *Cache) Get(key string) (val Value, ok bool) {
+	if ele, ok := c.eles[key]; ok {
+		c.ll.MoveToBack(ele)
+		kv := ele.Value.(*entry)
+		return kv.val, true
 	}
 	return
 }
 
 // Eviction removes the oldest item.
 func (c *Cache) Eviction() {
-	front := c.list.Front()
-	if front != nil {
-		c.list.Remove(front)
-		kv := front.Value.(*entry)
-		delete(c.cacheMap, kv.key)
-		c.size -= int64(len(kv.key)) + int64(kv.value.Len())
+	ele := c.ll.Front()
+	if ele != nil {
+		c.ll.Remove(ele)
+		kv := ele.Value.(*entry)
+		delete(c.eles, kv.key)
+		c.size -= int64(len(kv.key)) + int64(kv.val.Len())
 		if c.OnEvicted != nil {
-			c.OnEvicted(kv.key, kv.value)
+			c.OnEvicted(kv.key, kv.val)
 		}
 	}
 }
 
-// Add adds a value to the cacheMap.
-func (c *Cache) Add(key string, value Value) {
-	if element, ok := c.cacheMap[key]; ok {
-		c.list.MoveToBack(element)
-		kv := element.Value.(*entry)
-		c.size += int64(value.Len()) - int64(kv.value.Len())
-		kv.value = value
+// Add adds a val to the eles.
+func (c *Cache) Add(key string, val Value) {
+	if e, ok := c.eles[key]; ok {
+		c.ll.MoveToBack(e)
+		kv := e.Value.(*entry)
+		c.size += int64(val.Len()) - int64(kv.val.Len())
+		kv.val = val
 	} else {
-		front := c.list.PushBack(&entry{key, value})
-		c.cacheMap[key] = front
-		c.size += int64(len(key)) + int64(value.Len())
+		ele := c.ll.PushBack(&entry{key, val})
+		c.eles[key] = ele
+		c.size += int64(len(key)) + int64(val.Len())
 	}
 	for c.cap != 0 && c.cap < c.size {
 		c.Eviction()
 	}
 }
 
-// Len the number of cacheMap entries.
+// Len the number of eles entries.
 func (c *Cache) Len() int {
-	return c.list.Len()
+	return c.ll.Len()
 }

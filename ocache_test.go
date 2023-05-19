@@ -28,9 +28,9 @@ var db = map[string]string{
 
 func Test_Get(t *testing.T) {
 	loadCounts := make(map[string]int, len(db))
-	c := NewClass("scores", 2<<10, GetterFunc(
+	c := NewClass("Person", 1<<10, GetterFunc(
 		func(key string) ([]byte, error) {
-			log.Println("[SlowDB] search key", key)
+			log.Println("[SlowDB] Search key", key)
 			if v, ok := db[key]; ok {
 				if _, ok := loadCounts[key]; !ok {
 					loadCounts[key] = 0
@@ -45,7 +45,7 @@ func Test_Get(t *testing.T) {
 	for k, v := range db {
 		// load from callback function
 		if view, err := c.Get(k); err != nil || view.String() != v {
-			t.Fatal("failed to get b of Tom")
+			t.Fatal("Failed to get bytes of Tom")
 		}
 		// Cache hit
 		if _, err := c.Get(k); err != nil || loadCounts[k] > 1 {
@@ -54,14 +54,14 @@ func Test_Get(t *testing.T) {
 	}
 
 	if value, err := c.Get("unknown"); err == nil {
-		t.Fatalf("the b of unknow should be empty, but %s got", value)
+		t.Fatalf("The bytes of unknow should be empty, but %s got", value)
 	}
 }
 
-func createClass() *Class {
-	return NewClass("scores", 2<<10, GetterFunc(
+func createRelation() *Relation {
+	return NewClass("Person", 2<<10, GetterFunc(
 		func(key string) ([]byte, error) {
-			log.Println("[SlowDB] search key", key)
+			log.Println("[SlowDB] Search key", key)
 			if v, ok := db[key]; ok {
 				return []byte(v), nil
 			}
@@ -69,15 +69,15 @@ func createClass() *Class {
 		}))
 }
 
-func startCacheServer(addr string, addrs []string, c *Class) {
+func startCacheServer(addr string, addrs []string, c *Relation) {
 	peers := NewHTTPPool(addr)
 	peers.Set(addrs...)
 	c.RegisterPeers(peers)
-	log.Println("oCache is running at", addr)
+	log.Println("Ocache is running at", addr)
 	log.Fatal(http.ListenAndServe(addr[7:], peers))
 }
 
-func startAPIServer(apiAddr string, c *Class) {
+func startAPIServer(apiAddr string, c *Relation) {
 	http.Handle("/api", http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
 			key := r.URL.Query().Get("key")
@@ -100,7 +100,7 @@ func startAPIServer(apiAddr string, c *Class) {
 func Test_Server(t *testing.T) {
 	var port int
 	var api bool
-	flag.IntVar(&port, "port", 8001, "oCache server port")
+	flag.IntVar(&port, "port", 8001, "Ocache server port")
 	flag.BoolVar(&api, "api", false, "Start a api server?")
 	flag.Parse()
 
@@ -116,7 +116,7 @@ func Test_Server(t *testing.T) {
 		addrs = append(addrs, v)
 	}
 
-	c := createClass()
+	c := createRelation()
 	if api {
 		go startAPIServer(apiAddr, c)
 	}

@@ -8,32 +8,32 @@ type call struct {
 	err error
 }
 
-type Class struct {
+type Relation struct {
 	mu    sync.Mutex // protects calls
 	calls map[string]*call
 }
 
-func (cls *Class) Do(key string, fn func() (interface{}, error)) (interface{}, error) {
-	cls.mu.Lock()
-	if cls.calls == nil {
-		cls.calls = make(map[string]*call)
+func (r *Relation) Do(key string, fn func() (interface{}, error)) (interface{}, error) {
+	r.mu.Lock()
+	if r.calls == nil {
+		r.calls = make(map[string]*call)
 	}
-	if c, ok := cls.calls[key]; ok {
-		cls.mu.Unlock()
+	if c, ok := r.calls[key]; ok {
+		r.mu.Unlock()
 		c.wg.Wait()
 		return c.val, c.err
 	}
 	c := new(call)
 	c.wg.Add(1)
-	cls.calls[key] = c
-	cls.mu.Unlock()
+	r.calls[key] = c
+	r.mu.Unlock()
 
 	c.val, c.err = fn()
 	c.wg.Done()
 
-	cls.mu.Lock()
-	delete(cls.calls, key)
-	cls.mu.Unlock()
+	r.mu.Lock()
+	delete(r.calls, key)
+	r.mu.Unlock()
 
 	return c.val, c.err
 }

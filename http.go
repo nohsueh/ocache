@@ -14,43 +14,43 @@ import (
 )
 
 const (
-	defaultBasePath = "/_rcache/"
+	defaultBasePath = "/_ocache/"
 	defaultReplicas = 50
 )
 
 // HTTPPool implements PeerPicker for a pool of HTTP peers.
 type HTTPPool struct {
 	// this peer's base URL, e.g. "https://example.net:8000"
-	self        string
-	basePath    string
+	host        string
+	path        string
 	mu          sync.Mutex // guards peers and httpGetters
 	peers       *consistenthash.Map
 	httpGetters map[string]*httpGetter // keyed by e.g. "http://10.0.0.2:8008"
 }
 
 // NewHTTPPool initializes an HTTP pool of peers.
-func NewHTTPPool(self string) *HTTPPool {
+func NewHTTPPool(host string) *HTTPPool {
 	return &HTTPPool{
-		self:     self,
-		basePath: defaultBasePath,
+		host: host,
+		path: defaultBasePath,
 	}
 }
 
 // Log info with server name.
 func (p *HTTPPool) Log(format string, v ...interface{}) {
-	log.Printf("[Server %s] %s", p.self, fmt.Sprintf(format, v...))
+	log.Printf("[Server %s] %s", p.host, fmt.Sprintf(format, v...))
 }
 
 // ServeHTTP handle all http requests.
 func (p *HTTPPool) ServeHTTP(w http.ResponseWriter, request *http.Request) {
-	if !strings.HasPrefix(request.URL.Path, p.basePath) {
+	if !strings.HasPrefix(request.URL.Path, p.path) {
 		panic("HTTPPool serving unexpected path: " + request.URL.Path)
 	}
 	p.Log("%s %s", request.Method, request.URL.Path)
-	// /<base path>/<class name>/<key> required
-	parts := strings.SplitN(request.URL.Path[len(p.basePath):], "/", 2)
+	// /<host>/<path>/<relation name>/<key> required
+	parts := strings.SplitN(request.URL.Path[len(p.path):], "/", 2)
 	if len(parts) != 2 {
-		http.Error(w, "bad request", http.StatusBadRequest)
+		http.Error(w, "Bad request", http.StatusBadRequest)
 		return
 	}
 
@@ -59,18 +59,18 @@ func (p *HTTPPool) ServeHTTP(w http.ResponseWriter, request *http.Request) {
 
 	c := GetClass(className)
 	if c == nil {
-		http.Error(w, "no such c: "+className, http.StatusNotFound)
+		http.Error(w, "No such c: "+className, http.StatusNotFound)
 		return
 	}
 
-	value, err := c.Get(key)
+	view, err := c.Get(key)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Write the value to the response body as a proto message.
-	body, err := proto.Marshal(&pb.Response{Value: value.ByteSlice()})
+	// Write the view to the response body as a proto message.
+	body, err := proto.Marshal(&pb.Response{Value: view.ByteSlice()})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -131,7 +131,7 @@ func (p *HTTPPool) Set(peers ...string) {
 	p.peers.Add(peers...)
 	p.httpGetters = make(map[string]*httpGetter, len(peers))
 	for _, peer := range peers {
-		p.httpGetters[peer] = &httpGetter{baseURL: peer + p.basePath}
+		p.httpGetters[peer] = &httpGetter{baseURL: peer + p.path}
 	}
 }
 
@@ -139,7 +139,7 @@ func (p *HTTPPool) Set(peers ...string) {
 func (p *HTTPPool) PickPeer(key string) (PeerGetter, bool) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if peer := p.peers.Get(key); peer != "" && peer != p.self {
+	if peer := p.peers.Get(key); peer != "" && peer != p.host {
 		p.Log("Pick peer %s", peer)
 		return p.httpGetters[peer], true
 	}

@@ -8,28 +8,28 @@ import (
 type Cache struct {
 	mu    sync.Mutex
 	cache *lru.Cache
-	bytes int64
+	cap   int64
 }
 
-func (c *Cache) add(key string, value ByteView) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+func (f *Cache) add(key string, view ByteView) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 
-	if c.cache == nil {
-		c.cache = lru.New(c.bytes, nil)
+	if f.cache == nil {
+		f.cache = lru.New(f.cap, nil)
 	}
-	c.cache.Add(key, value)
+	f.cache.Add(key, view)
 }
 
-func (c *Cache) get(key string) (value ByteView, ok bool) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+func (f *Cache) get(key string) (view ByteView, ok bool) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 
-	if c.cache == nil {
+	if f.cache == nil {
 		return
 	}
 
-	if v, ok := c.cache.Get(key); ok {
+	if v, ok := f.cache.Get(key); ok {
 		return v.(ByteView), ok
 	}
 
