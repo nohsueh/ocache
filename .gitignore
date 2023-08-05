@@ -3,7 +3,3 @@
 .vscode
 tmp
 *.db
-<<<<<<< HEAD
-=======
-*.sum
->>>>>>> 6bdcc2a (init commit)
