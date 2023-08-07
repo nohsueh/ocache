@@ -23,10 +23,10 @@ func (f GetterFunc) Get(key string) ([]byte, error) {
 
 // A Relation is a Cache namespace and associated data loaded spread over.
 type Relation struct {
-	name      string
-	getter    Getter
-	mainCache Cache
-	peers     PeerPicker
+	name   string
+	getter Getter
+	cache  Cache
+	peers  PeerPicker
 	// use singleflight.Relation to make sure that
 	// each key is only fetched once
 	loader *singleflight.Relation
@@ -37,26 +37,26 @@ var (
 	relations = make(map[string]*Relation)
 )
 
-// NewClass create a new instance of Relation.
-func NewClass(name string, cacheBytes int64, getter Getter) *Relation {
+// NewRelation create a new instance of Relation.
+func NewRelation(name string, cacheBytes int64, getter Getter) *Relation {
 	mu.Lock()
 	defer mu.Unlock()
 	if getter == nil {
 		panic("nil Getter")
 	}
 	r := &Relation{
-		name:      name,
-		getter:    getter,
-		mainCache: Cache{cap: cacheBytes},
-		loader:    &singleflight.Relation{},
+		name:   name,
+		getter: getter,
+		cache:  Cache{cap: cacheBytes},
+		loader: &singleflight.Relation{},
 	}
 	relations[name] = r
 	return r
 }
 
-// GetClass returns the named class previously created with NewClass, or nil if
+// GetRelation returns the named class previously created with NewRelation, or nil if
 // there's no such class.
-func GetClass(name string) *Relation {
+func GetRelation(name string) *Relation {
 	mu.RLock()
 	defer mu.RUnlock()
 	r := relations[name]
@@ -69,7 +69,7 @@ func (r *Relation) Get(key string) (ByteView, error) {
 		return ByteView{}, fmt.Errorf("key is required")
 	}
 
-	if view, ok := r.mainCache.get(key); ok {
+	if view, ok := r.cache.get(key); ok {
 		log.Println("[Cache] hit")
 		return view, nil
 	}
@@ -111,8 +111,8 @@ func (r *Relation) load(key string) (value ByteView, err error) {
 
 func (r *Relation) getFromPeer(peer PeerGetter, key string) (ByteView, error) {
 	req := &pb.Request{
-		Class: r.name,
-		Key:   key,
+		Relation: r.name,
+		Key:      key,
 	}
 	res := &pb.Response{}
 	err := peer.Get(req, res)
@@ -133,5 +133,5 @@ func (r *Relation) getLocally(key string) (ByteView, error) {
 }
 
 func (r *Relation) populateCache(key string, value ByteView) {
-	r.mainCache.add(key, value)
+	r.cache.add(key, value)
 }

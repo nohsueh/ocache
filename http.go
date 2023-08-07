@@ -54,16 +54,16 @@ func (p *HTTPPool) ServeHTTP(w http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	className := parts[0]
+	relationName := parts[0]
 	key := parts[1]
 
-	c := GetClass(className)
-	if c == nil {
-		http.Error(w, "No such c: "+className, http.StatusNotFound)
+	r := GetRelation(relationName)
+	if r == nil {
+		http.Error(w, "No such r: "+relationName, http.StatusNotFound)
 		return
 	}
 
-	view, err := c.Get(key)
+	view, err := r.Get(key)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -91,7 +91,7 @@ func (h *httpGetter) Get(in *pb.Request, out *pb.Response) error {
 	u := fmt.Sprintf(
 		"%v%v/%v",
 		h.baseURL,
-		url.QueryEscape(in.GetClass()),
+		url.QueryEscape(in.GetRelation()),
 		url.QueryEscape(in.GetKey()),
 	)
 	res, err := http.Get(u)
