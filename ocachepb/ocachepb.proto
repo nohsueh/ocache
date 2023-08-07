@@ -1,11 +1,11 @@
 syntax = "proto3";
 
-package ocachepb;
-
 option go_package = "./";
 
+package ocachepb;
+
 message Request {
-  string class = 1;
+  string relation = 1;
   string key = 2;
 }
 
@@ -13,6 +13,6 @@ message Response {
   bytes value = 1;
 }
 
-service ClassCache {
+service RelationCache {
   rpc Get(Request) returns (Response);
 }

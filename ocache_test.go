@@ -28,7 +28,7 @@ var db = map[string]string{
 
 func Test_Get(t *testing.T) {
 	loadCounts := make(map[string]int, len(db))
-	c := NewClass("Person", 1<<10, GetterFunc(
+	r := NewRelation("Person", 1<<10, GetterFunc(
 		func(key string) ([]byte, error) {
 			log.Println("[SlowDB] Search key", key)
 			if v, ok := db[key]; ok {
@@ -44,22 +44,22 @@ func Test_Get(t *testing.T) {
 
 	for k, v := range db {
 		// load from callback function
-		if view, err := c.Get(k); err != nil || view.String() != v {
+		if view, err := r.Get(k); err != nil || view.String() != v {
 			t.Fatal("Failed to get bytes of Tom")
 		}
 		// Cache hit
-		if _, err := c.Get(k); err != nil || loadCounts[k] > 1 {
+		if _, err := r.Get(k); err != nil || loadCounts[k] > 1 {
 			t.Fatalf("Cache %s miss", k)
 		}
 	}
 
-	if value, err := c.Get("unknown"); err == nil {
+	if value, err := r.Get("unknown"); err == nil {
 		t.Fatalf("The bytes of unknow should be empty, but %s got", value)
 	}
 }
 
 func createRelation() *Relation {
-	return NewClass("Person", 2<<10, GetterFunc(
+	return NewRelation("Person", 2<<10, GetterFunc(
 		func(key string) ([]byte, error) {
 			log.Println("[SlowDB] Search key", key)
 			if v, ok := db[key]; ok {
@@ -69,10 +69,10 @@ func createRelation() *Relation {
 		}))
 }
 
-func startCacheServer(addr string, addrs []string, c *Relation) {
+func startCacheServer(addr string, addrs []string, r *Relation) {
 	peers := NewHTTPPool(addr)
 	peers.Set(addrs...)
-	c.RegisterPeers(peers)
+	r.RegisterPeers(peers)
 	log.Println("Ocache is running at", addr)
 	log.Fatal(http.ListenAndServe(addr[7:], peers))
 }
@@ -116,9 +116,9 @@ func Test_Server(t *testing.T) {
 		addrs = append(addrs, v)
 	}
 
-	c := createRelation()
+	r := createRelation()
 	if api {
-		go startAPIServer(apiAddr, c)
+		go startAPIServer(apiAddr, r)
 	}
-	startCacheServer(addrMap[port], addrs, c)
+	startCacheServer(addrMap[port], addrs, r)
 }

@@ -11,25 +11,25 @@ type Cache struct {
 	cap   int64
 }
 
-func (f *Cache) add(key string, view ByteView) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
+func (c *Cache) add(key string, view ByteView) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
-	if f.cache == nil {
-		f.cache = lru.New(f.cap, nil)
+	if c.cache == nil {
+		c.cache = lru.New(c.cap, nil)
 	}
-	f.cache.Add(key, view)
+	c.cache.Add(key, view)
 }
 
-func (f *Cache) get(key string) (view ByteView, ok bool) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
+func (c *Cache) get(key string) (view ByteView, ok bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
-	if f.cache == nil {
+	if c.cache == nil {
 		return
 	}
 
-	if v, ok := f.cache.Get(key); ok {
+	if v, ok := c.cache.Get(key); ok {
 		return v.(ByteView), ok
 	}
 
