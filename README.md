@@ -11,5 +11,4 @@
 
 ## THX
 
-- https://github.com/golang/protobuf
-- https://github.com/golang/groupcache
+- https://bradfitz.com/
